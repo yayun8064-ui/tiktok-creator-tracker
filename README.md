@@ -1,6 +1,6 @@
-# 📊 TikTok Creator Tracker
+# Claude × 飞书全自动追踪 30 个 TikTok 达人数据 | 游戏发行必备
 
-> 专为 TikTok 创作者生态运营设计——把作者名单丢给飞书机器人，自动产出追踪底表、按时推送卡片日报和周报
+> 作者名单一丢，底表 + 日报 + 周报全出，一行代码都不用写
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/)
