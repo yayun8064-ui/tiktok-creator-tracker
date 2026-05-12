@@ -1,6 +1,6 @@
-# Claude × 飞书全自动追踪TikTok 达人数据 | 运营必备
+# Claude × 飞书对话式全自动追踪TikTok 达人数据 | 运营必备一键日报/周报
 
-> 打开飞书机器人作者名单一丢，达人账号数据底表 + 日报 + 周报全出，一行代码都不用写
+> 打开飞书机器人，对话框里把作者名单一丢，达人账号数据底表 + 日报 + 周报全出，自动建表、日报推送、周报聚合，全程在飞书完成，无需手动配表分析！一行代码都不用写！
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/)
