@@ -1,6 +1,6 @@
-# Claude × 飞书全自动追踪 30 个 TikTok 达人数据 | 游戏发行必备
+# Claude × 飞书全自动追踪TikTok 达人数据 | 运营必备
 
-> 作者名单一丢，底表 + 日报 + 周报全出，一行代码都不用写
+> 打开飞书机器人作者名单一丢，达人账号数据底表 + 日报 + 周报全出，一行代码都不用写
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/)
