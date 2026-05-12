@@ -132,7 +132,9 @@ tiktok_weekly_report.py（说「出周报」触发）
 | Python 3.8+ | 运行脚本 | macOS 自带 |
 | [lark-cli](https://www.npmjs.com/package/@larksuite/cli) | 飞书命令行工具 | `npm install -g @larksuite/cli` |
 | requests | HTTP 库 | `pip3 install requests` |
-| [RapidAPI tiktok-api23](https://rapidapi.com/Lundehund/api/tiktok-api23) | TikTok 数据接口 | 注册订阅，免费 500次/月 |
+| TikTok 数据 API | 兼容主流 TikTok 数据接口，当前示例使用 [RapidAPI tiktok-api23](https://rapidapi.com/Lundehund/api/tiktok-api23) | 注册订阅，免费 500次/月 |
+
+> ⚠️ **安全提示**：`~/.config/tiktok-tracker/rapidapi.key` 与本地配置文件仅保存在本机，禁止提交到仓库。`.gitignore` 已默认忽略 `rapidapi.key`、`config.json`、`.env`。
 
 ---
 
