@@ -199,7 +199,7 @@ python3 tiktok_vv_tracker.py video <video_id>
 python3 tiktok_vv_tracker.py search "cookie run" --count 20
 
 # 查话题 Top 视频
-python3 tiktok_vv_tracker.py hashtag cookierunkingdom --top 20
+python3 tiktok_vv_tracker.py hashtag <hashtag> --top 20
 ```
 
 ---
