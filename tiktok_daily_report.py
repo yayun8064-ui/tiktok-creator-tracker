@@ -44,11 +44,55 @@ def fmt_num(n):
     return f"{n:,}"
 
 
+def fmt_pct(curr, prev):
+    if not prev:
+        return "—"
+    pct = (curr - prev) / prev * 100
+    if pct >= 0:
+        return f"<font color='green'>+{pct:.1f}%</font>"
+    return f"<font color='red'>{pct:.1f}%</font>"
+
+
+def read_bitable_prev_period(base_token, table_id, target_date_str):
+    """读取多维表格中指定日期的数据，按账号聚合，返回 {uniqueId: {vv, like, comment}}"""
+    if not base_token or not table_id:
+        return {}
+    cmd = [
+        "lark-cli", "base", "+record-list",
+        "--base-token", base_token, "--table-id", table_id,
+        "--format", "json", "--limit", "200", "--as", "user",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        resp = json.loads(result.stdout)
+    except Exception:
+        return {}
+    if not resp.get("ok"):
+        return {}
+    data = resp.get("data", {})
+    fields = data.get("fields", [])
+    stats = {}
+    for row in data.get("data", []):
+        record = dict(zip(fields, row))
+        pub_time = str(record.get("发布时间", "") or "")
+        if not pub_time.startswith(target_date_str):
+            continue
+        uid = record.get("账号", "")
+        if not uid:
+            continue
+        if uid not in stats:
+            stats[uid] = {"vv": 0, "like": 0, "comment": 0}
+        stats[uid]["vv"] += int(record.get("VV") or 0)
+        stats[uid]["like"] += int(record.get("Like") or 0)
+        stats[uid]["comment"] += int(record.get("Comment") or 0)
+    return stats
+
+
 def bitable_url(base_token, table_id):
     return f"https://www.feishu.cn/base/{base_token}?table={table_id}"
 
 
-def build_daily_card(accounts_data, today_str, base_token, table_id):
+def build_daily_card(accounts_data, today_str, base_token, table_id, prev_stats=None):
     active = [a for a in accounts_data if not a.get("error") and a.get("recentVideoCount", 0) > 0]
     inactive = [a for a in accounts_data if not a.get("error") and a.get("recentVideoCount", 0) == 0]
     errors = [a for a in accounts_data if a.get("error")]
@@ -74,15 +118,19 @@ def build_daily_card(accounts_data, today_str, base_token, table_id):
             })
     all_videos.sort(key=lambda v: v["_vv_raw"], reverse=True)
 
+    prev_total_vv = sum(v.get("vv", 0) for v in prev_stats.values()) if prev_stats else 0
+    prev_total_like = sum(v.get("like", 0) for v in prev_stats.values()) if prev_stats else 0
+    prev_total_comment = sum(v.get("comment", 0) for v in prev_stats.values()) if prev_stats else 0
+
     elements = [
         {
             "tag": "markdown",
             "content": (
                 f"共 **{len(accounts_data)}** 位作者监控｜"
                 f"今日发布 **{total_videos}** 条｜"
-                f"总播放 **{fmt_num(total_vv)}**｜"
-                f"点赞 **{fmt_num(total_like)}**｜"
-                f"评论 **{fmt_num(total_comment)}**"
+                f"总播放 **{fmt_num(total_vv)}** {fmt_pct(total_vv, prev_total_vv)}｜"
+                f"点赞 **{fmt_num(total_like)}** {fmt_pct(total_like, prev_total_like)}｜"
+                f"评论 **{fmt_num(total_comment)}** {fmt_pct(total_comment, prev_total_comment)}"
             )
         },
         {"tag": "hr"},
@@ -97,6 +145,7 @@ def build_daily_card(accounts_data, today_str, base_token, table_id):
                 {"name": "account", "display_name": "账号", "width": "auto"},
                 {"name": "followers", "display_name": "粉丝", "width": "auto"},
                 {"name": "vv", "display_name": "今日 VV", "width": "auto"},
+                {"name": "change", "display_name": "环比昨日", "width": "auto"},
             ],
             "rows": [
                 {
@@ -104,6 +153,10 @@ def build_daily_card(accounts_data, today_str, base_token, table_id):
                     "account": f"@{acc['uniqueId']}",
                     "followers": fmt_num(acc.get("followerCount", 0)),
                     "vv": fmt_num(acc.get("totalVV", 0)),
+                    "change": fmt_pct(
+                        acc.get("totalVV", 0),
+                        (prev_stats or {}).get(acc["uniqueId"], {}).get("vv", 0),
+                    ),
                 }
                 for i, acc in enumerate(ranked)
             ]
@@ -267,6 +320,10 @@ def main():
     accounts_data = data.get("summary", {}).get("accounts", [])
     print(f"  拿到 {len(accounts_data)} 个账号数据")
 
+    yesterday_str = (datetime.now(CST) - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_stats = read_bitable_prev_period(base_token, table_id, yesterday_str) if base_token and table_id else {}
+    print(f"  昨日对比数据：{len(prev_stats)} 个账号")
+
     if base_token and table_id:
         fields, rows = build_video_rows(accounts_data, dimensions)
         write_to_bitable(base_token, table_id, fields, rows)
@@ -274,7 +331,7 @@ def main():
         print("  ⚠️ 未配置 bitable_token/table_id，跳过写入")
 
     if open_id:
-        card = build_daily_card(accounts_data, today_str, base_token, table_id)
+        card = build_daily_card(accounts_data, today_str, base_token, table_id, prev_stats=prev_stats)
         send_feishu_card(open_id, card)
     else:
         print("  ⚠️ 未配置 feishu_open_id，跳过发送")
