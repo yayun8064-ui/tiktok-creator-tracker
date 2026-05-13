@@ -30,6 +30,15 @@ def fmt_num(n):
     return f"{n:,}"
 
 
+def fmt_pct(curr, prev):
+    if not prev:
+        return "—"
+    pct = (curr - prev) / prev * 100
+    if pct >= 0:
+        return f"<font color='green'>+{pct:.1f}%</font>"
+    return f"<font color='red'>{pct:.1f}%</font>"
+
+
 def bitable_url(base_token, table_id):
     return f"https://www.feishu.cn/base/{base_token}?table={table_id}"
 
@@ -86,11 +95,14 @@ def parse_date(record):
         return None
 
 
-def aggregate(records, days, all_accounts):
-    """按账号聚合过去 days 天的数据"""
-    since = (datetime.now(CST) - timedelta(days=days)).date()
+def aggregate(records, days, all_accounts, since=None, until=None):
+    """按账号聚合指定日期范围的数据"""
+    if since is None:
+        since = (datetime.now(CST) - timedelta(days=days)).date()
+    if until is None:
+        until = datetime.now(CST).date()
 
-    filtered = [r for r in records if parse_date(r) and parse_date(r) >= since]
+    filtered = [r for r in records if parse_date(r) and since <= parse_date(r) <= until]
 
     # 按账号聚合
     account_stats = {}
@@ -131,7 +143,7 @@ def aggregate(records, days, all_accounts):
     return account_stats, inactive, top3
 
 
-def build_weekly_card(account_stats, inactive, top3, days, base_token, table_id):
+def build_weekly_card(account_stats, inactive, top3, days, base_token, table_id, prev_stats=None):
     now = datetime.now(CST)
     end_str = now.strftime("%m-%d")
     start_str = (now - timedelta(days=days)).strftime("%m-%d")
@@ -144,15 +156,19 @@ def build_weekly_card(account_stats, inactive, top3, days, base_token, table_id)
 
     ranked = sorted(account_stats.values(), key=lambda s: s["vv"], reverse=True)
 
+    prev_total_vv = sum(s.get("vv", 0) for s in prev_stats.values()) if prev_stats else 0
+    prev_total_like = sum(s.get("like", 0) for s in prev_stats.values()) if prev_stats else 0
+    prev_total_comment = sum(s.get("comment", 0) for s in prev_stats.values()) if prev_stats else 0
+
     elements = [
         {
             "tag": "markdown",
             "content": (
                 f"统计周期 **{period}**（{days}天）｜"
                 f"发布 **{total_videos}** 条｜"
-                f"总VV **{fmt_num(total_vv)}**｜"
-                f"点赞 **{fmt_num(total_like)}**｜"
-                f"评论 **{fmt_num(total_comment)}**"
+                f"总VV **{fmt_num(total_vv)}** {fmt_pct(total_vv, prev_total_vv)}｜"
+                f"点赞 **{fmt_num(total_like)}** {fmt_pct(total_like, prev_total_like)}｜"
+                f"评论 **{fmt_num(total_comment)}** {fmt_pct(total_comment, prev_total_comment)}"
             )
         },
         {"tag": "hr"},
@@ -163,6 +179,7 @@ def build_weekly_card(account_stats, inactive, top3, days, base_token, table_id)
                 {"name": "account", "display_name": "账号", "width": "auto"},
                 {"name": "videos", "display_name": "发布", "width": "auto"},
                 {"name": "vv", "display_name": "总VV", "width": "auto"},
+                {"name": "vv_change", "display_name": "环比", "width": "auto"},
                 {"name": "like", "display_name": "Like", "width": "auto"},
                 {"name": "comment", "display_name": "评论", "width": "auto"},
             ],
@@ -171,6 +188,7 @@ def build_weekly_card(account_stats, inactive, top3, days, base_token, table_id)
                     "account": f"@{s['uniqueId']}",
                     "videos": str(s["video_count"]),
                     "vv": fmt_num(s["vv"]),
+                    "vv_change": fmt_pct(s["vv"], (prev_stats or {}).get(s["uniqueId"], {}).get("vv", 0)),
                     "like": fmt_num(s["like"]),
                     "comment": fmt_num(s["comment"]),
                 }
@@ -248,10 +266,16 @@ def main():
     records = read_bitable_records(base_token, table_id)
     print(f"  共读取 {len(records)} 条记录")
 
-    account_stats, inactive, top3 = aggregate(records, args.days, all_accounts)
+    today = datetime.now(CST).date()
+    current_since = today - timedelta(days=args.days)
+    prev_since = current_since - timedelta(days=args.days)
+    prev_until = current_since - timedelta(days=1)
+
+    account_stats, inactive, top3 = aggregate(records, args.days, all_accounts, since=current_since, until=today)
+    prev_stats, _, _ = aggregate(records, args.days, all_accounts, since=prev_since, until=prev_until)
     print(f"  聚合完成：{len(account_stats)} 个账号有数据，{len(inactive)} 个停更")
 
-    card = build_weekly_card(account_stats, inactive, top3, args.days, base_token, table_id)
+    card = build_weekly_card(account_stats, inactive, top3, args.days, base_token, table_id, prev_stats=prev_stats)
 
     if open_id:
         send_feishu_card(open_id, card)
